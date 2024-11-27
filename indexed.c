@@ -4,9 +4,10 @@
 
 #define maxsize 100
 #define MAX_FILES 30
+#define MAX_BLOCK_PTRS maxsize
+
 #define DATA_BLOCK_TYPE 0
 #define INDEX_BLOCK_TYPE 1
-#define MAX_BLOCK_PTRS maxsize
 
 // Function prototypes
 void init(void);
@@ -27,7 +28,6 @@ union blockContent
 struct block
 {
     int type; // DATA_BLOCK (0) or INDEX_BLOCK (1)
-    int used; // 0 for free, 1 for allocated
     union blockContent content;
 };
 
@@ -55,7 +55,6 @@ void init()
     for (int i = 0; i < maxsize; i++)
     {
         disk[i].type = DATA_BLOCK_TYPE;
-        disk[i].used = 0;
         disk[i].content.data = 0;
     }
 }
@@ -65,7 +64,7 @@ int getFreeBlock()
 {
     for (int i = 0; i < maxsize; i++)
     {
-        if (!disk[i].used)
+        if (disk[i].content.data == 0)
             return i;
     }
     return -1;
@@ -115,7 +114,7 @@ void insertFile(char *name, int blocks)
 
     // Setup index block
     disk[indexBlock].type = INDEX_BLOCK_TYPE;
-    disk[indexBlock].used = 1;
+    disk[indexBlock].content.data = 1;
 
     // Initialize block pointers to -1
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
@@ -127,10 +126,9 @@ void insertFile(char *name, int blocks)
     int allocated = 0;
     for (int i = 0; i < maxsize && allocated < blocks; i++)
     {
-        if (!disk[i].used && i != indexBlock)
+        if (disk[i].content.data == 0 && i != indexBlock)
         {
             disk[i].type = DATA_BLOCK_TYPE;
-            disk[i].used = 1;
             disk[i].content.data = 1;
             disk[indexBlock].content.blockPtrs[allocated] = i;
             allocated++;
@@ -141,13 +139,13 @@ void insertFile(char *name, int blocks)
     {
         printf("\nNot enough free blocks\n");
         // Cleanup allocated blocks
-        disk[indexBlock].used = 0;
+        disk[indexBlock].content.data = 0;
         for (int i = 0; i < allocated; i++)
         {
             int blockNum = disk[indexBlock].content.blockPtrs[i];
             if (blockNum != -1)
             {
-                disk[blockNum].used = 0;
+                disk[blockNum].content.data = 0;
             }
         }
         return;
@@ -191,19 +189,17 @@ void deleteFile(char *name)
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
     {
         int dataBlock = disk[indexBlock].content.blockPtrs[i];
-        if (dataBlock >= 0 && dataBlock < maxsize && disk[dataBlock].used)
+        if (dataBlock >= 0 && dataBlock < maxsize && disk[dataBlock].content.data == 1)
         {
-            disk[dataBlock].used = 0;
-            disk[dataBlock].type = DATA_BLOCK_TYPE;
             disk[dataBlock].content.data = 0;
+            disk[dataBlock].type = DATA_BLOCK_TYPE;
             blocksFreed++;
         }
     }
 
     // Free index block
-    disk[indexBlock].used = 0;
-    disk[indexBlock].type = DATA_BLOCK_TYPE;
     disk[indexBlock].content.data = 0;
+    disk[indexBlock].type = DATA_BLOCK_TYPE;
 
     // Update free space
     freeSpace += blocksFreed;
@@ -243,7 +239,7 @@ void displayDisk()
     {
         if (i % 10 == 0)
             printf("\n%d\t", i);
-        if (disk[i].used)
+        if (disk[i].content.data == 1)
             printf("%d\t", disk[i].type);
         else
             printf("%d\t", 0);

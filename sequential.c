@@ -10,7 +10,12 @@ struct fileEntry
     int length;
 } fileEntry;
 
-int disk[maxsize] = {0};
+struct block
+{
+    int data; // 0 for free, 1 for used
+};
+
+struct block disk[maxsize];
 int freeSpace = maxsize;
 struct fileEntry files[30];
 
@@ -29,6 +34,11 @@ void init()
     for (i = 0; i < 30; i++)
     {
         files[i].name = NULL;
+    }
+
+    for (int i = 0; i < maxsize; i++)
+    {
+        disk[i].data = 0; // Initialize all blocks as free
     }
 }
 int getEmptySlot()
@@ -67,7 +77,7 @@ void insertFile(char *name, int blocks)
     int i, j, free = 0;
     for (i = 0; i < maxsize; i++)
     {
-        if (disk[i] == 0)
+        if (disk[i].data == 0)
             free++;
         else
             free = 0;
@@ -92,10 +102,11 @@ void insertFile(char *name, int blocks)
 
     for (; i <= temp; i++)
     {
-        disk[i] = 1;
+        disk[i].data = 1; // Mark blocks as used
     }
 
-    printf("Inserted\n");
+    printf("\nFile '%s' inserted successfully\n", name);
+    printf("Location: Blocks %d to %d\n", files[slot].start, files[slot].start + files[slot].length - 1);
 }
 void deleteFile(char *name)
 {
@@ -105,48 +116,71 @@ void deleteFile(char *name)
         printf("\nFile not found\n");
         return;
     }
-    int i;
-    for (i = files[pos].start; i < (files[pos].start + files[pos].length); i++)
+
+    for (int i = files[pos].start; i < (files[pos].start + files[pos].length); i++)
     {
-        disk[i] = 0;
+        disk[i].data = 0; // Mark blocks as free
     }
+
     freeSpace += files[pos].length;
     free(files[pos].name);
     files[pos].name = NULL;
-    printf("Deleted\n");
+
+    printf("\nFile '%s' deleted successfully\n", name);
+    printf("Freed %d blocks starting from block %d\n",
+           files[pos].length, files[pos].start);
 }
 void displaySize()
 {
-    printf("Free space in disk = %d", freeSpace);
+    printf("\n================== DISK INFO ==================\n");
+    printf("Total size: %d blocks\n", maxsize);
+    printf("Free space: %d blocks\n", freeSpace);
+    printf("Used space: %d blocks\n", maxsize - freeSpace);
+    printf("===============================================\n");
 }
 void displayDisk()
 {
-    int i;
-    printf("\nDISK:\n\n\t0\t1\t2\t3\t4\t5\t6\t7\t8\t9\n");
-    for (i = 0; i < maxsize; i++)
+    printf("\n=================== DISK MAP ===================\n");
+    printf("     ");
+    for (int j = 0; j < 10; j++)
+        printf("%4d ", j);
+    printf("\n");
+
+    for (int i = 0; i < maxsize; i++)
     {
         if (i % 10 == 0)
-            printf("\n%d\t", i);
-        if (disk[i] == 0)
-            printf("%d\t", 0);
-        else
-            printf("%d\t", 1);
+        {
+            printf("\n%3d  ", i);
+        }
+        printf("[%2d] ", disk[i].data);
     }
     printf("\n");
+    printf("===============================================\n");
 }
 void displayFiles()
 {
-    int i;
-    printf("Files in disk:\n");
-    printf("Name\tStart\tLength\n");
-    for (i = 0; i < 30; i++)
+    printf("\n================ FILES IN DISK ================\n");
+    printf("%-20s %-10s %-10s %-s\n", "File Name", "Start", "Length", "Blocks");
+    printf("-----------------------------------------------\n");
+
+    for (int i = 0; i < 30; i++)
     {
         if (files[i].name != NULL)
         {
-            printf("%s\t%4d\t%3d\n", files[i].name, files[i].start, files[i].length);
+            printf("%-20s %-10d %-10d [ ",
+                   files[i].name,
+                   files[i].start,
+                   files[i].length);
+
+            // Print the actual blocks used by the file
+            for (int j = files[i].start; j < files[i].start + files[i].length; j++)
+            {
+                printf("%d ", j);
+            }
+            printf("]\n");
         }
     }
-    printf("\n");
+    printf("===============================================\n\n");
 }
 int main()
 {
