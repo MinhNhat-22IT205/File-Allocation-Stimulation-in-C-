@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/indexed.out.dir/indexed.c.o -o bin/indexed.out 

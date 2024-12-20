@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/sequential.out.dir/sequential.c.o -o bin/sequential.out 

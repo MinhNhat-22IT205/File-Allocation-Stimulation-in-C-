@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/linked.out.dir/linked.c.o -o bin/linked.out 

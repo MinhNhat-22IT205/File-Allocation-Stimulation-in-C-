@@ -1,0 +1,7 @@
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/indexed.out.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/inode.out.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/linked.out.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/linked-fat.out.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/sequential.out.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/edit_cache.dir
+/home/nyatto/Projects/file-allocation/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/inode.out.dir/inode.c.o -o bin/inode.out 

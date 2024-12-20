@@ -1,0 +1,1 @@
+/usr/bin/cc "CMakeFiles/linked-fat.out.dir/linked-fat.c.o" -o bin/linked-fat.out 
