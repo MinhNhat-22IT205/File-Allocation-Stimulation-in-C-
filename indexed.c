@@ -11,27 +11,27 @@
 #define DATA_BLOCK_TYPE 0
 #define INDEX_BLOCK_TYPE 1
 
-union blockContent
+union BlockContent
 {
     int data;                                // For DATA_BLOCK
-    struct block *blockPtrs[MAX_BLOCK_PTRS]; // For INDEX_BLOCK
+    struct Block *blockPtrs[MAX_BLOCK_PTRS]; // For INDEX_BLOCK
 };
 
-struct block
+struct Block
 {
     int type; // DATA_BLOCK (0) or INDEX_BLOCK (1)
-    union blockContent content;
+    union BlockContent content;
 };
 
-struct fileEntry
+struct FileEntry
 {
     char *name;     // File name
     int indexBlock; // Index block location
 };
 
-struct block disk[maxsize];
+struct Block disk[maxsize];
 int freeSpace = maxsize;
-struct fileEntry files[MAX_FILES];
+struct FileEntry files[MAX_FILES];
 
 void init()
 {
@@ -132,7 +132,7 @@ void insertFile(char *name, int blocks)
         disk[indexBlock].content.data = 0;
         for (int i = 0; i < allocated; i++)
         {
-            struct block *blockPtr = disk[indexBlock].content.blockPtrs[i];
+            struct Block *blockPtr = disk[indexBlock].content.blockPtrs[i];
             if (blockPtr != NULL)
             {
                 blockPtr->content.data = 0;
@@ -158,7 +158,7 @@ void deleteFile(char *name)
     }
 
     int indexBlock = files[pos].indexBlock;
-    struct block *indexPtr = &disk[indexBlock];
+    struct Block *indexPtr = &disk[indexBlock];
 
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
     {
@@ -195,7 +195,7 @@ void displayFileInfo()
     }
 
     int indexBlock = files[pos].indexBlock;
-    struct block *indexPtr = &disk[indexBlock];
+    struct Block *indexPtr = &disk[indexBlock];
 
     int blockCount = 0;
     printf("\nFile: %s\n", files[pos].name);
@@ -229,7 +229,7 @@ void displayFileInfo()
     }
 
     start = clock();
-    struct block *targetBlock = indexPtr->content.blockPtrs[targetIndex];
+    struct Block *targetBlock = indexPtr->content.blockPtrs[targetIndex];
 
     struct timespec delay;
     delay.tv_sec = 0;
@@ -289,7 +289,7 @@ void displayFiles()
             printf("[ ");
             for (int j = 0; j < MAX_BLOCK_PTRS; j++)
             {
-                struct block *blockPtr = disk[files[i].indexBlock].content.blockPtrs[j];
+                struct Block *blockPtr = disk[files[i].indexBlock].content.blockPtrs[j];
                 if (blockPtr != NULL)
                 {
                     printf("%ld ", blockPtr - disk); // Print block index by subtracting the base address of disk
