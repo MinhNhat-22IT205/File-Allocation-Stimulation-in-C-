@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h> // for malloc, exit
 #include <string.h> // for strcpy, strcmp
+#include <time.h>	// for clock and nanosleep
+
 #define maxsize 100
 
 // Function prototypes
@@ -12,6 +14,7 @@ void deleteFile(char *name);
 void displaySize(void);
 void displayDisk(void);
 void displayFiles(void);
+void displayFileInfo(void); // New function
 
 struct block
 {
@@ -39,10 +42,11 @@ void init()
 	}
 	for (i = 0; i < maxsize; i++)
 	{
-		disk[i].value = 0; // Disk is Empty & blocks do not point to any other block
+		disk[i].value = 0; // Disk is empty & blocks do not point to any other block
 		disk[i].next = NULL;
 	}
 }
+
 int getEmptySlot()
 {
 	int i;
@@ -67,7 +71,7 @@ void insertFile(char *name, int blocks)
 		return;
 	}
 	int start = -1;
-	int i, j, allocated = 0;
+	int i, allocated = 0;
 	int prev = -1;
 	for (i = 0; i < maxsize; i++)
 	{
@@ -94,11 +98,12 @@ void insertFile(char *name, int blocks)
 	files[slot].name = malloc(strlen(name) + 1);
 	strcpy(files[slot].name, name);
 	files[slot].start = start;
-	files[slot].end = start + blocks - 1;
+	files[slot].end = i;
 	freeSpace -= blocks;
 
-	printf("Inserted\n");
+	printf("\nFile '%s' inserted successfully\n", name);
 }
+
 void deleteFile(char *name)
 {
 	int pos;
@@ -108,18 +113,19 @@ void deleteFile(char *name)
 		printf("\nFile not found\n");
 		return;
 	}
-	disk[files[pos].start].value = 0;
-	struct block *temp = disk[files[pos].start].next;
+	struct block *temp = &disk[files[pos].start];
 	while (temp != NULL)
 	{
 		temp->value = 0;
 		size++;
 		temp = temp->next;
 	}
-	freeSpace += size + 1;
+	freeSpace += size;
+	free(files[pos].name);
 	files[pos].name = NULL;
-	printf("Deleted\n");
+	printf("\nFile '%s' deleted successfully\n", name);
 }
+
 int searchFile(char *name)
 {
 	int i;
@@ -130,10 +136,12 @@ int searchFile(char *name)
 	}
 	return -1;
 }
+
 void displaySize()
 {
-	printf("Free space in disk = %d", freeSpace);
+	printf("Free space in disk = %d\n", freeSpace);
 }
+
 void displayDisk()
 {
 	int i;
@@ -146,10 +154,11 @@ void displayDisk()
 	}
 	printf("\n");
 }
+
 void displayFiles()
 {
 	int i;
-	printf("Files in disk:\n");
+	printf("\nFiles in disk:\n");
 	printf("Name\tStart\tEnd\n\n");
 	for (i = 0; i < 30; i++)
 	{
@@ -166,21 +175,88 @@ void displayFiles()
 			printf("NULL\n");
 		}
 	}
-
-	printf("\n");
 }
+
+void displayFileInfo()
+{
+	char name[20];
+	printf("\nEnter file name: ");
+	getchar();
+	fgets(name, 20, stdin);
+	name[strcspn(name, "\n")] = '\0';
+
+	int pos = searchFile(name);
+	if (pos == -1)
+	{
+		printf("File not found!\n");
+		return;
+	}
+
+	struct block *temp = &disk[files[pos].start];
+	int blockCount = 0;
+	printf("\nFile: %s\n", files[pos].name);
+
+	// Sequential Access Time
+	clock_t start = clock();
+	while (temp != NULL)
+	{
+		temp = temp->next;
+		blockCount++;
+
+		// Giả sử mỗi block mất 5ms để truy cập
+		struct timespec delay;
+		delay.tv_sec = 0;
+		delay.tv_nsec = 5 * 1000000L; // 5ms
+		nanosleep(&delay, NULL);
+	}
+	clock_t end = clock();
+	double sequentialAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+	printf("Sequential Access Time: %.2f ms\n", sequentialAccessTime);
+
+	// Random Access Time
+	printf("Enter target block index (0 to %d): ", blockCount - 1);
+	int targetIndex;
+	scanf("%d", &targetIndex);
+
+	if (targetIndex < 0 || targetIndex >= blockCount)
+	{
+		printf("Invalid block index!\n");
+		return;
+	}
+
+	temp = &disk[files[pos].start];
+	start = clock();
+	for (int i = 0; i <= targetIndex; i++)
+	{
+		temp = temp->next;
+
+		// Giả sử mỗi block mất 5ms để truy cập
+		struct timespec delay;
+		delay.tv_sec = 0;
+		delay.tv_nsec = 5 * 1000000L; // 5ms
+		nanosleep(&delay, NULL);
+	}
+	end = clock();
+	double randomAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+
+	printf("Random Access Time to Block %d: %.2f ms\n", targetIndex, randomAccessTime);
+	printf("===============================================\n");
+}
+
 int main()
 {
 	int option;
 	char *name = (char *)malloc(20 * sizeof(char));
-	int blocks, start;
+	int blocks;
 	init();
-	printf("Linked File allocation technique\n\n");
+	printf("Linked File Allocation Technique\n\n");
 	printf("\n1. Insert a File");
 	printf("\n2. Delete a File");
 	printf("\n3. Display the disk");
 	printf("\n4. Display all files");
-	printf("\n5. Exit\n");
+	printf("\n5. Display file information (access times and memory usage)");
+	printf("\n6. Exit\n");
+
 	while (1)
 	{
 		displaySize();
@@ -192,6 +268,7 @@ int main()
 			printf("Enter file name: ");
 			getchar();
 			fgets(name, 20, stdin);
+			name[strcspn(name, "\n")] = '\0';
 			printf("Enter number of blocks: ");
 			scanf("%d", &blocks);
 			insertFile(name, blocks);
@@ -200,6 +277,7 @@ int main()
 			printf("Enter file name to delete: ");
 			getchar();
 			fgets(name, 20, stdin);
+			name[strcspn(name, "\n")] = '\0';
 			deleteFile(name);
 			break;
 		case 3:
@@ -209,9 +287,13 @@ int main()
 			displayFiles();
 			break;
 		case 5:
-			exit(1);
+			displayFileInfo();
+			break;
+		case 6:
+			free(name);
+			exit(0);
 		default:
-			exit(1);
+			printf("Invalid option\n");
 		}
 	}
 }

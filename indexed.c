@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #define maxsize 100
 #define MAX_FILES 30
@@ -9,41 +11,28 @@
 #define DATA_BLOCK_TYPE 0
 #define INDEX_BLOCK_TYPE 1
 
-// Function prototypes
-void init(void);
-int getEmptySlot(void);
-int searchFile(char *name);
-void insertFile(char *name, int blocks);
-void deleteFile(char *name);
-void displaySize(void);
-void displayDisk(void);
-void displayFiles(void);
-
 union blockContent
 {
-    int data;                      // For DATA_BLOCK
-    int blockPtrs[MAX_BLOCK_PTRS]; // For INDEX_BLOCK, stores pointers to data blocks
+    int data;                                // For DATA_BLOCK
+    struct block *blockPtrs[MAX_BLOCK_PTRS]; // For INDEX_BLOCK
 };
-// Block structure with union for different block types
+
 struct block
 {
     int type; // DATA_BLOCK (0) or INDEX_BLOCK (1)
     union blockContent content;
 };
 
-// File entry structure
 struct fileEntry
 {
     char *name;     // File name
     int indexBlock; // Index block location
 };
 
-// Disk and file system setup
 struct block disk[maxsize];
 int freeSpace = maxsize;
 struct fileEntry files[MAX_FILES];
 
-// Initialize file system
 void init()
 {
     for (int i = 0; i < MAX_FILES; i++)
@@ -59,7 +48,6 @@ void init()
     }
 }
 
-// Get first free block in disk
 int getFreeBlock()
 {
     for (int i = 0; i < maxsize; i++)
@@ -70,7 +58,6 @@ int getFreeBlock()
     return -1;
 }
 
-// Get an empty slot for a new file
 int getEmptySlot()
 {
     for (int i = 0; i < MAX_FILES; i++)
@@ -81,12 +68,20 @@ int getEmptySlot()
     return -1;
 }
 
-// Insert a new file
+int searchFile(char *name)
+{
+    for (int i = 0; i < MAX_FILES; i++)
+    {
+        if (files[i].name != NULL && strcmp(files[i].name, name) == 0)
+            return i;
+    }
+    return -1;
+}
+
 void insertFile(char *name, int blocks)
 {
-
     if (blocks + 1 > freeSpace)
-    { // +1 for index block
+    {
         printf("\nFile size too big (need %d blocks, only %d available)\n", blocks + 1, freeSpace);
         return;
     }
@@ -104,7 +99,6 @@ void insertFile(char *name, int blocks)
         return;
     }
 
-    // Allocate index block first
     int indexBlock = getFreeBlock();
     if (indexBlock == -1)
     {
@@ -112,17 +106,14 @@ void insertFile(char *name, int blocks)
         return;
     }
 
-    // Setup index block
     disk[indexBlock].type = INDEX_BLOCK_TYPE;
     disk[indexBlock].content.data = 1;
 
-    // Initialize block pointers to -1
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
     {
-        disk[indexBlock].content.blockPtrs[i] = -1;
+        disk[indexBlock].content.blockPtrs[i] = NULL;
     }
 
-    // Allocate data blocks
     int allocated = 0;
     for (int i = 0; i < maxsize && allocated < blocks; i++)
     {
@@ -130,7 +121,7 @@ void insertFile(char *name, int blocks)
         {
             disk[i].type = DATA_BLOCK_TYPE;
             disk[i].content.data = 1;
-            disk[indexBlock].content.blockPtrs[allocated] = i;
+            disk[indexBlock].content.blockPtrs[allocated] = &disk[i];
             allocated++;
         }
     }
@@ -138,35 +129,25 @@ void insertFile(char *name, int blocks)
     if (allocated < blocks)
     {
         printf("\nNot enough free blocks\n");
-        // Cleanup allocated blocks
         disk[indexBlock].content.data = 0;
         for (int i = 0; i < allocated; i++)
         {
-            int blockNum = disk[indexBlock].content.blockPtrs[i];
-            if (blockNum != -1)
+            struct block *blockPtr = disk[indexBlock].content.blockPtrs[i];
+            if (blockPtr != NULL)
             {
-                disk[blockNum].content.data = 0;
+                blockPtr->content.data = 0;
             }
         }
         return;
     }
 
-    // Setup file entry
     files[slot].name = strdup(name);
     files[slot].indexBlock = indexBlock;
-    freeSpace -= (blocks + 1); // Count data blocks + index block
+    freeSpace -= (blocks + 1);
 
     printf("File inserted successfully\n");
-    printf("Index block: %d\n", indexBlock);
-    printf("Data blocks: ");
-    for (int i = 0; i < blocks; i++)
-    {
-        printf("%d ", disk[indexBlock].content.blockPtrs[i]);
-    }
-    printf("\n");
 }
 
-// Delete a file
 void deleteFile(char *name)
 {
     int pos = searchFile(name);
@@ -177,77 +158,121 @@ void deleteFile(char *name)
     }
 
     int indexBlock = files[pos].indexBlock;
-    if (indexBlock < 0 || indexBlock >= maxsize)
-    {
-        printf("\nInvalid index block\n");
-        return;
-    }
+    struct block *indexPtr = &disk[indexBlock];
 
-    int blocksFreed = 1; // Start with 1 for index block
-
-    // Free all data blocks
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
     {
-        int dataBlock = disk[indexBlock].content.blockPtrs[i];
-        if (dataBlock >= 0 && dataBlock < maxsize && disk[dataBlock].content.data == 1)
+        if (indexPtr->content.blockPtrs[i] != NULL)
         {
-            disk[dataBlock].content.data = 0;
-            disk[dataBlock].type = DATA_BLOCK_TYPE;
-            blocksFreed++;
+            indexPtr->content.blockPtrs[i]->content.data = 0;
+            indexPtr->content.blockPtrs[i] = NULL;
+            freeSpace++;
         }
     }
 
-    // Free index block
     disk[indexBlock].content.data = 0;
-    disk[indexBlock].type = DATA_BLOCK_TYPE;
-
-    // Update free space
-    freeSpace += blocksFreed;
-
-    // Clear file entry
     free(files[pos].name);
     files[pos].name = NULL;
     files[pos].indexBlock = -1;
+    freeSpace++;
 
-    printf("File deleted successfully\n");
-    printf("Freed %d blocks\n", blocksFreed);
+    printf("\nFile deleted successfully\n");
 }
 
-// Search for a file by name
-int searchFile(char *name)
+void displayFileInfo()
 {
-    for (int i = 0; i < MAX_FILES; i++)
+    char name[20];
+    printf("\nEnter file name: ");
+    getchar();
+    fgets(name, 20, stdin);
+    name[strcspn(name, "\n")] = '\0';
+
+    int pos = searchFile(name);
+    if (pos == -1)
     {
-        if (files[i].name != NULL && strcmp(files[i].name, name) == 0)
-            return i;
+        printf("File not found!\n");
+        return;
     }
-    return -1;
+
+    int indexBlock = files[pos].indexBlock;
+    struct block *indexPtr = &disk[indexBlock];
+
+    int blockCount = 0;
+    printf("\nFile: %s\n", files[pos].name);
+
+    // Sequential Access Time
+    clock_t start = clock();
+    for (int i = 0; i < MAX_BLOCK_PTRS; i++)
+    {
+        if (indexPtr->content.blockPtrs[i] != NULL)
+        {
+            struct timespec delay;
+            delay.tv_sec = 0;
+            delay.tv_nsec = 5 * 1000000L; // 5ms
+            nanosleep(&delay, NULL);
+            blockCount++;
+        }
+    }
+    clock_t end = clock();
+    double sequentialAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+    printf("Sequential Access Time: %.2f ms\n", sequentialAccessTime);
+
+    // Random Access Time
+    printf("Enter target block index (0 to %d): ", blockCount - 1);
+    int targetIndex;
+    scanf("%d", &targetIndex);
+
+    if (targetIndex < 0 || targetIndex >= blockCount)
+    {
+        printf("Invalid block index!\n");
+        return;
+    }
+
+    start = clock();
+    struct block *targetBlock = indexPtr->content.blockPtrs[targetIndex];
+
+    struct timespec delay;
+    delay.tv_sec = 0;
+    delay.tv_nsec = 5 * 1000000L; // 5ms
+    nanosleep(&delay, NULL);
+
+    end = clock();
+    double randomAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+
+    printf("Random Access Time to Block %d: %.2f ms\n", targetIndex, randomAccessTime);
+    printf("===============================================\n");
 }
 
-// Display free space
-void displaySize()
-{
-    printf("\nFree space in disk = %d blocks\n", freeSpace);
-}
-
-// Display disk layout
 void displayDisk()
 {
-    int i;
-    printf("\nDISK:\n\n\t0\t1\t2\t3\t4\t5\t6\t7\t8\t9\n");
-    for (i = 0; i < maxsize; i++)
+    printf("\nDISK:\n");
+    printf("\t0\t1\t2\t3\t4\t5\t6\t7\t8\t9\n");
+
+    for (int i = 0; i < maxsize; i++)
     {
         if (i % 10 == 0)
+        {
             printf("\n%d\t", i);
-        if (disk[i].content.data == 1)
-            printf("%d\t", disk[i].type);
+        }
+        if (disk[i].content.data == 0)
+        {
+            printf("0\t");
+        }
         else
-            printf("%d\t", 0);
+        {
+            if (disk[i].type == DATA_BLOCK_TYPE)
+            {
+                printf("DB\t");
+            }
+            else if (disk[i].type == INDEX_BLOCK_TYPE)
+            {
+                printf("IB\t");
+            }
+        }
     }
     printf("\n");
 }
 
-// Display files and their blocks
 void displayFiles()
 {
     printf("\n========== FILES IN DISK ==========\n");
@@ -261,24 +286,21 @@ void displayFiles()
             printf("%-15s %-13d ", files[i].name, files[i].indexBlock);
 
             // Count and display data blocks
-            int blockCount = 0;
             printf("[ ");
             for (int j = 0; j < MAX_BLOCK_PTRS; j++)
             {
-                int blockNum = disk[files[i].indexBlock].content.blockPtrs[j];
-                if (blockNum >= 0 && blockNum < maxsize)
+                struct block *blockPtr = disk[files[i].indexBlock].content.blockPtrs[j];
+                if (blockPtr != NULL)
                 {
-                    printf("%d ", blockNum);
-                    blockCount++;
+                    printf("%ld ", blockPtr - disk); // Print block index by subtracting the base address of disk
                 }
             }
-            printf("] (Total: %d blocks)\n", blockCount + 1); // +1 for index block
+            printf("]\n");
         }
     }
     printf("==========================================================\n");
 }
 
-// Main program
 int main()
 {
     int option;
@@ -289,13 +311,12 @@ int main()
     printf("Indexed File Allocation Technique Simulation\n\n");
     printf("1. Insert a File\n");
     printf("2. Delete a File\n");
-    printf("3. Display the Disk\n");
-    printf("4. Display All Files\n");
+    printf("3. Display Disk\n");
+    printf("4. Display File Info (Access Times)\n");
     printf("5. Exit\n");
 
     while (1)
     {
-        displaySize();
         printf("\nEnter option: ");
         scanf("%d", &option);
 
@@ -305,29 +326,32 @@ int main()
             printf("Enter file name: ");
             getchar();
             fgets(name, 20, stdin);
-            name[strcspn(name, "\n")] = '\0'; // Remove newline character
+            name[strcspn(name, "\n")] = '\0';
             printf("Enter number of blocks: ");
             scanf("%d", &blocks);
             insertFile(name, blocks);
             break;
 
         case 2:
-            printf("Enter file name to delete: ");
+            printf("Enter file name: ");
             getchar();
             fgets(name, 20, stdin);
-            name[strcspn(name, "\n")] = '\0'; // Remove newline character
+            name[strcspn(name, "\n")] = '\0';
             deleteFile(name);
             break;
 
         case 3:
             displayDisk();
             break;
-
         case 4:
             displayFiles();
             break;
 
         case 5:
+            displayFileInfo();
+            break;
+
+        case 6:
             free(name);
             exit(0);
 

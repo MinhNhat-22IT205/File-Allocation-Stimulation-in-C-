@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h> // Thêm thư viện để đo thời gian
 #define maxsize 100
 
 struct fileEntry
@@ -27,6 +28,7 @@ void deleteFile(char *name);
 void displaySize(void);
 void displayDisk(void);
 void displayFiles(void);
+void displayFileAccessTime(void);
 
 void init()
 {
@@ -41,6 +43,7 @@ void init()
         disk[i].data = 0; // Initialize all blocks as free
     }
 }
+
 int getEmptySlot()
 {
     int i;
@@ -62,6 +65,7 @@ int searchFile(char *name)
     }
     return -1;
 }
+
 void insertFile(char *name, int blocks)
 {
     if (blocks > freeSpace)
@@ -108,6 +112,7 @@ void insertFile(char *name, int blocks)
     printf("\nFile '%s' inserted successfully\n", name);
     printf("Location: Blocks %d to %d\n", files[slot].start, files[slot].start + files[slot].length - 1);
 }
+
 void deleteFile(char *name)
 {
     int pos;
@@ -130,6 +135,7 @@ void deleteFile(char *name)
     printf("Freed %d blocks starting from block %d\n",
            files[pos].length, files[pos].start);
 }
+
 void displaySize()
 {
     printf("\n================== DISK INFO ==================\n");
@@ -138,6 +144,7 @@ void displaySize()
     printf("Used space: %d blocks\n", maxsize - freeSpace);
     printf("===============================================\n");
 }
+
 void displayDisk()
 {
     printf("\n=================== DISK MAP ===================\n");
@@ -157,6 +164,7 @@ void displayDisk()
     printf("\n");
     printf("===============================================\n");
 }
+
 void displayFiles()
 {
     printf("\n================ FILES IN DISK ================\n");
@@ -182,6 +190,70 @@ void displayFiles()
     }
     printf("===============================================\n\n");
 }
+
+void displayFileAccessTime()
+{
+    char name[20];
+    printf("Enter file name: ");
+    getchar();
+    fgets(name, 20, stdin);
+    name[strcspn(name, "\n")] = '\0';
+
+    int pos = searchFile(name);
+    if (pos == -1)
+    {
+        printf("File not found!\n");
+        return;
+    }
+
+    int startBlock = files[pos].start;
+    int length = files[pos].length;
+    printf("\nFile: %s\n", files[pos].name);
+    printf("Start Block: %d\n", startBlock);
+    printf("Length: %d blocks\n", length);
+
+    // Tính thời gian truy cập tuần tự
+    clock_t start = clock();
+    for (int i = startBlock; i < startBlock + length; i++)
+    {
+        // Giả sử mỗi block mất 5ms để truy cập
+        struct timespec delay;
+        delay.tv_sec = 0;
+        delay.tv_nsec = 5 * 1000000L; // 5ms
+        nanosleep(&delay, NULL);
+    }
+    clock_t end = clock();
+    double sequentialAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+
+    printf("Sequential Access Time: %.2f ms\n", sequentialAccessTime);
+
+    // Tính thời gian truy cập ngẫu nhiên
+    int targetBlock;
+    printf("Enter target block index (relative to file start, 0 to %d): ", length - 1);
+    scanf("%d", &targetBlock);
+
+    if (targetBlock < 0 || targetBlock >= length)
+    {
+        printf("Invalid block index!\n");
+        return;
+    }
+
+    int targetAbsoluteBlock = startBlock + targetBlock;
+    start = clock();
+    for (int i = startBlock; i <= targetAbsoluteBlock; i++)
+    {
+        struct timespec delay;
+        delay.tv_sec = 0;
+        delay.tv_nsec = 5 * 1000000L; // 5ms
+        nanosleep(&delay, NULL);
+    }
+    end = clock();
+    double randomAccessTime = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+
+    printf("Random Access Time to Block %d (absolute index: %d): %.2f ms\n",
+           targetBlock, targetAbsoluteBlock, randomAccessTime);
+}
+
 int main()
 {
     int option;
@@ -193,7 +265,8 @@ int main()
     printf("\n2. Delete a File");
     printf("\n3. Display the disk");
     printf("\n4. Display all files");
-    printf("\n5. Exit\n");
+    printf("\n5. Exit");
+    printf("\n6. Display random access time\n");
     while (1)
     {
         displaySize();
@@ -226,6 +299,9 @@ int main()
         case 5:
             free(name);
             exit(0);
+        case 6:
+            displayFileAccessTime();
+            break;
         default:
             printf("Invalid option\n");
         }
