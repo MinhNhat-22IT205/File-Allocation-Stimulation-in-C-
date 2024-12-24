@@ -115,7 +115,7 @@ void insertFile(const char *fileName, int blockCount)
         return;
     }
 
-    fileEntries[fileSlot].fileName = malloc(strlen(fileName) + 1);
+    fileEntries[fileSlot].fileName = malloc(strlen(fileName) + 1); // Allocate memory for the file name
     strcpy(fileEntries[fileSlot].fileName, fileName);
     fileEntries[fileSlot].startBlock = startIndex;
     fileEntries[fileSlot].blockLength = blockCount;
@@ -303,8 +303,8 @@ int main()
         case 2:
             printf("Enter file name to delete: ");
             getchar();
-            fgets(fileName, 20, stdin);
-            fileName[strcspn(fileName, "\n")] = '\0';
+            fgets(fileName, 20, stdin);               // Read file name from user 20 characters
+            fileName[strcspn(fileName, "\n")] = '\0'; // Remove newline character in the input
             deleteFile(fileName);
             break;
         case 3:

@@ -290,7 +290,7 @@ int main()
 			printf("Enter file name to delete: ");
 			getchar();
 			fgets(fileName, 20, stdin);
-			fileName[strcspn(fileName, "\n")] = '\0';
+			fileName[strcspn(fileName, "\n")] = '\0'; // Remove newline character in the input
 			deleteFile(fileName);
 			break;
 		case 3:

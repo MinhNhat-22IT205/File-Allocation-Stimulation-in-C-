@@ -92,8 +92,8 @@ void insertFile(char *name, int blocks)
         return;
     }
 
-    int slot = getEmptySlot();
-    if (slot == -1)
+    int fileSlot = getEmptySlot();
+    if (fileSlot == -1)
     {
         printf("\nNo free file slots\n");
         return;
@@ -121,7 +121,7 @@ void insertFile(char *name, int blocks)
         {
             disk[i].type = DATA_BLOCK_TYPE;
             disk[i].content.data = 1;
-            disk[indexBlock].content.blockPtrs[allocated] = &disk[i];
+            disk[indexBlock].content.blockPtrs[allocated] = &disk[i]; // Assign the block pointer to the index block
             allocated++;
         }
     }
@@ -141,8 +141,8 @@ void insertFile(char *name, int blocks)
         return;
     }
 
-    files[slot].name = strdup(name);
-    files[slot].indexBlock = indexBlock;
+    files[fileSlot].name = strdup(name);
+    files[fileSlot].indexBlock = indexBlock;
     freeSpace -= (blocks + 1);
 
     printf("File inserted successfully\n");
@@ -160,6 +160,7 @@ void deleteFile(char *name)
     int indexBlock = files[pos].indexBlock;
     struct Block *indexPtr = &disk[indexBlock];
 
+    // Free all the blocks pointed by the index block
     for (int i = 0; i < MAX_BLOCK_PTRS; i++)
     {
         if (indexPtr->content.blockPtrs[i] != NULL)
@@ -326,7 +327,7 @@ int main()
             printf("Enter file name: ");
             getchar();
             fgets(name, 20, stdin);
-            name[strcspn(name, "\n")] = '\0';
+            name[strcspn(name, "\n")] = '\0'; // Remove newline character in the input
             printf("Enter number of blocks: ");
             scanf("%d", &blocks);
             insertFile(name, blocks);
